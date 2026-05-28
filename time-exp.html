@@ -1,0 +1,295 @@
+﻿<!DOCTYPE html>
+<html>
+
+<head>
+	<meta charset="utf-8">
+
+	<meta name="apple-mobile-web-app-capable" content="yes">
+	<meta name="apple-mobile-web-app-status-bar-style" content="black">
+
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.1/moment.min.js"></script>
+	<script src="unistring.js"></script>
+	<script src="symbols.js"></script>
+	<title>Time Matrix Exp</title>
+	<style>
+		@font-face {
+			font-family: 'Unifont';
+			src: url('unifont.woff') format('woff'), url('unifont.ttf') format('truetype');
+			font-weight: normal;
+			font-style: normal;
+		}
+		html, body, canvas { margin: 0; padding: 0; overflow: hidden; }
+		body { background: black; }
+		canvas { cursor: pointer; }
+	</style>
+</head>
+
+<body>
+	<canvas id="c"></canvas>
+	<audio id="a" loop="loop" preload="auto">
+		<source src="DramaticEndingShortVersion.mp3" type="audio/mpeg">
+	</audio>
+	<script>
+	// =============================================================
+	//  CONFIG
+	// =============================================================
+	var FONT_SIZE    = 16;
+	var MIN_SPEED    = 22;
+	var MAX_SPEED    = 99;
+	var SPEED_STEP   = 11;
+	var DEFAULT_SPEED = 88;
+	var TRAIL_ALPHA  = 0.10;
+	var MAX_RESET_STEPS = 200;
+
+	// =============================================================
+	//  STATE
+	// =============================================================
+	var drawTimerId  = null;
+	var dataTimerId  = null;
+	var messages     = [];   // per-column message state
+	var messagesQueue = [];  // pending time strings
+	var columns, rows, middle;
+	var currentSpeed  = DEFAULT_SPEED;
+	var is24hr        = true;
+
+	var mouseCol      = -1;  // column under cursor
+	var mouseColSteps = 0;
+
+	// toggle state
+	var toggleCol;                 // grid column for the toggle label
+	var toggleLabel     = '24';    // current label text
+	var toggleDropping  = false;   // true while animating the drop
+	var toggleDropChars = [];      // {char, col, row, speed}
+	var toggleDropStart = 0;
+
+	// =============================================================
+	//  SETUP / RESET
+	// =============================================================
+	function resetMatrix() {
+		var a = document.getElementById('a');
+		var c  = document.getElementById('c');
+		var ctx = c.getContext('2d');
+
+		c.height = window.innerHeight;
+		c.width  = window.innerWidth;
+
+		columns = Math.floor(c.width  / FONT_SIZE);
+		rows    = Math.floor(c.height / FONT_SIZE);
+		middle  = Math.floor(columns / 2);
+
+		// toggle sits at second-from-right column, row 1
+		toggleCol = columns - 2;
+		toggleLabel = is24hr ? '24' : 'AM/PM';
+		toggleDropping = false;
+		toggleDropChars = [];
+
+		messages = [];
+		messagesQueue = [];
+		for (var x = 0; x < columns; x++) {
+			messages.push({
+				y:      Math.floor(Math.random() * rows),
+				offset: 0,
+				symbols: []
+			});
+		}
+
+		mouseCol      = -1;
+		mouseColSteps = 0;
+		currentSpeed  = DEFAULT_SPEED;
+
+		clearInterval(drawTimerId);
+		drawTimerId = setInterval(function () { draw(ctx, c); }, currentSpeed);
+
+		// push time into the queue every 32 ms
+		clearInterval(dataTimerId);
+		dataTimerId = setInterval(function () {
+			var s = moment().format(is24hr ? 'HH:mm:ss.SSS' : 'h:mm:ss A');
+			messagesQueue.push({ text: s, url: '' });
+		}, 32);
+	}
+
+	// =============================================================
+	//  INPUT
+	// =============================================================
+	var audioEl = document.getElementById('a');
+	document.onmousemove = function (e) {
+		var col = Math.floor(e.clientX / FONT_SIZE);
+		if (col !== mouseCol) {
+			mouseCol = col;
+			mouseColSteps = 0;
+		}
+	};
+
+	document.onkeyup = function (e) {
+		if (e.keyCode === 32) { audioEl.paused ? audioEl.play() : audioEl.pause(); }
+	};
+
+	document.onclick = function (e) {
+		var col = Math.floor(e.clientX / FONT_SIZE);
+		var row = Math.floor(e.clientY / FONT_SIZE);
+
+		// clicking the toggle area?
+		if (col === toggleCol && (row === 1 || row === 0)) {
+			doToggle();
+		}
+	};
+
+	// =============================================================
+	//  TOGGLE LOGIC
+	// =============================================================
+	function doToggle() {
+		// 1. flip the mode
+		is24hr = !is24hr;
+		var newLabel = is24hr ? '24' : 'AM/PM';
+
+		// 2. capture current time
+		var nowStr = moment().format(is24hr ? 'HH:mm:ss.SSS' : 'h:mm:ss A');
+
+		// 3. animate the OLD label characters dropping away
+		var oldLabel = toggleLabel;
+		toggleLabel    = newLabel;
+		toggleDropping = true;
+		toggleDropStart = Date.now();
+		toggleDropChars = [];
+		for (var i = 0; i < oldLabel.length; i++) {
+			toggleDropChars.push({
+				char:  oldLabel[i],
+				col:   toggleCol - Math.floor(oldLabel.length / 2) + i,
+				row:   1,
+				speed: 0.6 + Math.random() * 1.2,
+				drift: (Math.random() - 0.5) * 0.4
+			});
+		}
+
+		// 4. seed the toggle column in messages[] with the time string
+		//    so it rains down naturally through the main loop
+		var msg = messages[toggleCol];
+		msg.symbols = nowStr.split('');
+		msg.offset  = 0;
+		msg.y       = 1;
+		msg.url     = '';
+	}
+
+	// =============================================================
+	//  DRAW LOOP
+	// =============================================================
+	function draw(ctx, c) {
+		// --- mouse-tracking column fade ---
+		if (mouseCol > 0) {
+			mouseColSteps++;
+			if (mouseColSteps > MAX_RESET_STEPS) {
+				mouseCol = -1;
+				mouseColSteps = 0;
+			}
+		}
+
+		// trail fade
+		if (mouseCol > 0) {
+			ctx.fillStyle = 'rgba(0,0,0,' + TRAIL_ALPHA + ')';
+			ctx.fillRect(0, 0, mouseCol * FONT_SIZE, c.height);
+			ctx.fillRect((mouseCol + 1) * FONT_SIZE, 0, c.width, c.height);
+		} else {
+			ctx.fillStyle = 'rgba(0,0,0,' + TRAIL_ALPHA + ')';
+			ctx.fillRect(0, 0, c.width, c.height);
+		}
+
+		ctx.font      = FONT_SIZE + 'px "Unifont", "Courier New", Courier';
+		ctx.textAlign = 'center';
+
+		// --- draw each column ---
+		for (var i = 0; i < columns; i++) {
+			// map iteration index → actual x coordinate (center-out)
+			var x = (i % 2 === 1)
+				? middle + (Math.floor(i / 2) + 1)
+				: middle - Math.floor(i / 2);
+
+			if (x >= columns || x < 0) continue;
+			if (x === mouseCol && mouseCol > 0) continue;
+
+			var msg = messages[x];
+
+			if (msg.offset < msg.symbols.length) {
+				// still streaming symbols for this column
+				var sym = msg.symbols[msg.offset];
+				if (sym) {
+					// head character is bright white, rest are green
+					var isHead = (msg.offset === 0);
+					ctx.fillStyle = isHead ? '#FFF' : '#0F0';
+					ctx.fillText(sym, x * FONT_SIZE + FONT_SIZE / 2, msg.y * FONT_SIZE);
+				}
+				msg.offset++;
+			} else {
+				// try to pull from queue
+				if (messagesQueue.length > 0 && Math.random() > 0.95) {
+					var item = messagesQueue.pop();
+					msg.symbols = getSymbols(item.text);
+					msg.offset  = 0;
+					msg.url     = item.url;
+				}
+			}
+
+			if (msg.y >= rows) msg.y = 1;
+			else               msg.y++;
+		}
+
+		// --- draw the toggle label (grid-snapped on canvas) ---
+		if (!toggleDropping) {
+			ctx.fillStyle = 'rgba(0,255,0,0.18)';
+			ctx.font      = FONT_SIZE + 'px "Unifont", "Courier New", Courier';
+			ctx.textAlign = 'center';
+			ctx.fillText(
+				toggleLabel,
+				toggleCol * FONT_SIZE + FONT_SIZE / 2,
+				1 * FONT_SIZE   // row 1 → y = 1 * font_size
+			);
+		}
+
+		// --- animate toggle-drop characters ---
+		if (toggleDropping) {
+			var elapsed = Date.now() - toggleDropStart;
+			var duration = 1800; // ms
+			var progress = Math.min(elapsed / duration, 1);
+
+			if (progress >= 1) {
+				toggleDropping  = false;
+				toggleDropChars = [];
+			} else {
+				ctx.font      = FONT_SIZE + 'px "Unifont", "Courier New", Courier';
+				ctx.textAlign = 'center';
+				for (var d = 0; d < toggleDropChars.length; d++) {
+					var dc   = toggleDropChars[d];
+					var dy   = dc.row + elapsed * dc.speed * 0.06;
+					var dx   = dc.col + elapsed * dc.drift  * 0.015;
+					var alpha = Math.max(0, 1 - progress * 1.3);
+					ctx.fillStyle = 'rgba(0,' + Math.floor(255 * alpha) + ',0,' + alpha + ')';
+					ctx.fillText(dc.char, dx * FONT_SIZE + FONT_SIZE / 2, dy * FONT_SIZE);
+				}
+			}
+		}
+
+		// --- speed adjustment ---
+		if (messagesQueue.length > columns * 2) {
+			if (currentSpeed > MIN_SPEED) {
+				currentSpeed -= SPEED_STEP;
+				clearInterval(drawTimerId);
+				drawTimerId = setInterval(function () { draw(ctx, c); }, currentSpeed);
+			}
+		} else if (messagesQueue.length < columns / 2) {
+			if (currentSpeed < MAX_SPEED) {
+				currentSpeed += SPEED_STEP;
+				clearInterval(drawTimerId);
+				drawTimerId = setInterval(function () { draw(ctx, c); }, currentSpeed);
+			}
+		}
+	}
+
+	// =============================================================
+	//  INIT
+	// =============================================================
+	window.addEventListener('resize', function () {
+		resetMatrix();
+	});
+	onload = resetMatrix;
+	</script>
+</body>
+</html>

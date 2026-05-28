@@ -3,6 +3,7 @@
 
 <head>
 	<meta charset="utf-8">
+	<script src="https://cdn.pubnub.com/pubnub.min.js"></script>
 	<script src="unistring.js"></script>
 	<script src="symbols.js"></script>
 	<title>Twitter Matrix</title>
@@ -29,9 +30,9 @@
 	<script>
 		// based on
 		// https://codepen.io/P3R0/pen/MwgoKv
-		// Real-time data stream from https://github.com/quixio/real-time-data-sources
+		// https://www.pubnub.com/developers/realtime-data-streams/twitter-stream/
 
-		var chatMessage = "";
+		var twitterMessage = "";
 		var alphabet = ["0", "1"];
 		var offset = 0;
 
@@ -92,54 +93,23 @@
 
 		setInterval(draw, 44);
 
-		// Connect to WebSocket stream for real-time chat data
-		var ws = new WebSocket('wss://ai-chat-wss-demo-realtimedatasources-prod.deployments.quix.io/timeseries');
+		PUBNUB.init({
+			subscribe_key: 'sub-c-d00e0d32-66ac-4628-aa65-a42a1f0c493b',
+			ssl: true
+		}).subscribe({
+			channel: 'pubnub-twitter',
+			message: function(msg) {
+				twitterMessage = msg.text;
 
-		ws.onopen = function() {
-			console.log('Connected to real-time data stream');
-		};
+				var letters = getSymbols(twitterMessage);
 
-		ws.onmessage = function(event) {
-			try {
-				var data = JSON.parse(event.data);
+				if (alphabet.length >= 10240)
+					alphabet = alphabet.slice(alphabet.length - letters.length);
 
-				// Extract chat text from the WebSocket message
-				// The data format includes timestamps and parameters with chat text
-				if (data.timestamps && data.timestamps.length > 0) {
-					// Look for the 'chat' parameter in the data
-					if (data.stringValues && data.stringValues.chat) {
-						for (var i = 0; i < data.stringValues.chat.length; i++) {
-							var text = data.stringValues.chat[i];
-							if (text && text.length > 0) {
-								chatMessage = text;
-
-								var letters = getSymbols(chatMessage);
-
-								if (alphabet.length >= 10240)
-									alphabet = alphabet.slice(alphabet.length - letters.length);
-
-								for (var j = 0; j < letters.length; j++)
-									alphabet.push(letters[j]);
-							}
-						}
-					}
-				}
-			} catch (e) {
-				console.error('Error parsing message:', e);
+				for (var i = 0; i < letters.length; i++)
+					alphabet.push(letters[i]);
 			}
-		};
-
-		ws.onerror = function(error) {
-			console.error('WebSocket error:', error);
-		};
-
-		ws.onclose = function() {
-			console.log('Disconnected from stream, attempting to reconnect...');
-			// Attempt to reconnect after 5 seconds
-			setTimeout(function() {
-				location.reload();
-			}, 5000);
-		};
+		});
 	</script>
 </body>
 

@@ -263,7 +263,7 @@
 			clearInterval(dataTimerId);
 			dataTimerId = setInterval(function()
 			{
-				const timeString = moment().format(is24hr ? 'HH:mm:ss.SSS' : 'h:mm:ss.SSS A');
+				const timeString = moment().format(is24hr ? 'HH:mm:ss.SSS' : 'hh:mm:ss.SSSA');
 				messagesQueue.push({ text: timeString, url: "" });
 
 				console.log(messagesQueue.length);

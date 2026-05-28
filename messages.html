@@ -7,6 +7,7 @@
 	<meta name="apple-mobile-web-app-capable" content="yes">
 	<meta name="apple-mobile-web-app-status-bar-style" content="black">
 	
+	<script src="https://cdn.pubnub.com/pubnub.min.js"></script>
 	<script src="unistring.js"></script>
 	<script src="symbols.js"></script>
 	<title>Twitter Matrix</title>
@@ -32,7 +33,7 @@
 		onload = function() {
 			// based on
 			// https://codepen.io/P3R0/pen/MwgoKv
-			// Real-time data stream from https://github.com/quixio/real-time-data-sources
+			// https://www.pubnub.com/developers/realtime-data-streams/twitter-stream/
 
 			// visualization settings
 			var maxMessages = 10240;
@@ -230,57 +231,26 @@
 			// Take language from url hash parameter
 			language = window.location.hash.substr(1).toLowerCase();
 
-			function addChatMessage(text, conversationId) {
-				// Create a simple URL (no actual link available for chat messages)
-				var messageUrl = "#" + conversationId;
-				chatMessages.push({ text: text, url: messageUrl });
+			function addChatMessage(text, url) {
+				if (chatMessages.length < maxMessages) {
+					chatMessages.push({ text: text, url: url || '#' });
+				}
 			}
 
-			// Connect to WebSocket stream for real-time chat data
-			var ws = new WebSocket('wss://ai-chat-wss-demo-realtimedatasources-prod.deployments.quix.io/timeseries');
-
-			ws.onopen = function() {
-				console.log('Connected to real-time data stream');
-			};
-
-			ws.onmessage = function(event) {
-				try {
-					var data = JSON.parse(event.data);
-
-					// Extract chat text from the WebSocket message
-					// The data format includes timestamps and parameters with chat text
-					if (data.timestamps && data.timestamps.length > 0) {
-						// Look for the 'chat' parameter in the data
-						if (data.stringValues && data.stringValues.chat) {
-							var conversationId = data.stringValues.conversation_id ? data.stringValues.conversation_id[0] : 'unknown';
-							for (var i = 0; i < data.stringValues.chat.length; i++) {
-								var text = data.stringValues.chat[i];
-								if (text && text.length > 0) {
-									// skip if there are too many messages (events)
-									if (chatMessages.length < maxMessages) {
-										addChatMessage(text, conversationId);
-									}
-								}
-							}
-						}
+			PUBNUB.init({
+				subscribe_key: 'sub-c-d00e0d32-66ac-4628-aa65-a42a1f0c493b',
+				ssl: true
+			}).subscribe({
+				channel: 'pubnub-twitter',
+				message: function(msg) {
+					var text = msg.text || (msg.message && msg.message.text) || '';
+					var url = msg.url || (msg.message && msg.message.url) || '#';
+					if (text) {
+						addChatMessage(text, url);
 					}
-				} catch (e) {
-					console.error('Error parsing message:', e);
 				}
-			};
-
-			ws.onerror = function(error) {
-				console.error('WebSocket error:', error);
-			};
-
-			ws.onclose = function() {
-				console.log('Disconnected from stream, attempting to reconnect...');
-				// Attempt to reconnect after 5 seconds
-				setTimeout(function() {
-					location.reload();
-				}, 5000);
-			};
-
+			});
+			}
 		}
 	</script>
 </body>

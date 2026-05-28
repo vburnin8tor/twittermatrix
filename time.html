@@ -24,26 +24,12 @@
 		canvas { cursor: pointer; }
 
 		#time-toggle {
-			position: fixed;
-			top: 8px;
-			right: 12px;
-			font-family: 'Unifont', 'Courier New', monospace;
-			font-size: 14px;
+			position: absolute;
+			font-family: 'Unifont', 'Courier New', 'Courier';
+			font-size: 16px;
 			color: #0F0;
-			opacity: 0.15;
-			cursor: default;
-			user-select: none;
+			pointer-events: none;
 			z-index: 10;
-		}
-		#time-toggle:hover {
-			color: #FFF;
-		}
-		#time-toggle.clicking {
-			animation: fadeDrop 0.8s ease-out forwards;
-		}
-		@keyframes fadeDrop {
-			0%   { opacity: 0.85; transform: translateY(0); }
-			100% { opacity: 0; transform: translateY(120px); }
 		}
 		</style>
 </head>
@@ -230,7 +216,7 @@
 					if (currentSpeed > minSpeed)
 					{
 						currentSpeed -= speedStep; // speed up
-						
+
 						clearInterval(timerId);
 						timerId = setInterval(draw, currentSpeed);
 					}
@@ -240,25 +226,14 @@
 					if (currentSpeed < maxSpeed)
 					{
 						currentSpeed += speedStep; // slow down
-						
+
 						clearInterval(timerId);
 						timerId = setInterval(draw, currentSpeed);
 					}
 				}
-			}
 
-			var is24hr = true;
-
-			var toggleEl = document.getElementById('time-toggle');
-			if (toggleEl) {
-				toggleEl.addEventListener('click', function() {
-					is24hr = !is24hr;
-					this.textContent = is24hr ? '24' : 'AM/PM';
-					this.classList.add('clicking');
-					var el = this;
-					setTimeout(function() { el.classList.remove('clicking'); }, 850);
-				});
-			}
+				updateTogglePos();
+				}
 
 			clearInterval(dataTimerId);
 			dataTimerId = setInterval(function()
@@ -270,8 +245,44 @@
 			}, 32);
 		}
 
+		var is24hr = true;
+		var toggleCol = -1;
+		var toggleRow = 1;
+		var toggleHover = false;
+		var toggleFading = false;
+		var toggleFadeStart = 0;
+
+		function updateTogglePos() {
+			toggleCol = columns - 2;
+			var tEl = document.getElementById('time-toggle');
+			if (tEl) {
+				tEl.style.left = (toggleCol * font_size) + 'px';
+				tEl.style.top = (toggleRow * font_size) + 'px';
+				tEl.textContent = is24hr ? '24' : 'AM/PM';
+				tEl.style.opacity = toggleFading ? Math.max(0, 0.6 - (Date.now() - toggleFadeStart) / 800) : (toggleHover ? 0.9 : 0.15);
+				tEl.style.color = toggleHover ? '#FFF' : '#0F0';
+			}
+		}
+
+		var toggleEl = document.getElementById('time-toggle');
+		if (toggleEl) {
+			toggleEl.style.pointerEvents = 'auto';
+			toggleEl.addEventListener('mouseenter', function() { toggleHover = true; });
+			toggleEl.addEventListener('mouseleave', function() { toggleHover = false; });
+			toggleEl.addEventListener('click', function() {
+				is24hr = !is24hr;
+				toggleFading = true;
+				toggleFadeStart = Date.now();
+				var el = this;
+				setTimeout(function() { toggleFading = false; }, 850);
+			});
+		}
+
 		window.addEventListener('resize', resetMatrix);
-		onload = resetMatrix;
+		onload = function() {
+			resetMatrix();
+			updateTogglePos();
+		};
 	</script>
 </body>
 

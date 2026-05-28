@@ -126,16 +126,6 @@
 				}
 			}
 			
-			function onClick(e)
-			{
-				updateColumnState(e);
-				var message = messages[currentColumnState.column];
-				if (message.url)
-				{
-					window.open(message.url, '_blank');
-				}
-			}
-			
 			function toggleAudio()
 			{
 				if (a.paused)
@@ -149,8 +139,7 @@
 			}
 			
 			onmousemove = updateColumnState;
-			onclick = onClick;
-			onkeyup = function(e) 
+			onkeyup = function(e)
 			{
 				if (e.keyCode == 32)
 				{
@@ -262,8 +251,7 @@
 
 			var toggleEl = document.getElementById('time-toggle');
 			if (toggleEl) {
-				toggleEl.addEventListener('click', function(e) {
-					e.stopPropagation();
+				toggleEl.addEventListener('click', function() {
 					is24hr = !is24hr;
 					this.textContent = is24hr ? '24' : 'AM/PM';
 					this.classList.add('clicking');
@@ -276,7 +264,7 @@
 			dataTimerId = setInterval(function()
 			{
 				const timeString = moment().format(is24hr ? 'HH:mm:ss.SSS' : 'h:mm:ss.SSS A');
-				messagesQueue.push({ text: timeString, url: "https://thechoiceisyours.whatisthematrix.com/" });
+				messagesQueue.push({ text: timeString, url: "" });
 
 				console.log(messagesQueue.length);
 			}, 32);

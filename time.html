@@ -22,11 +22,35 @@
 		html, body, canvas, script { margin: 0; padding: 0; overflow: hidden; }
 		body { background: black; }
 		canvas { cursor: pointer; }
-	</style>
+
+		#time-toggle {
+			position: fixed;
+			top: 8px;
+			right: 12px;
+			font-family: 'Unifont', 'Courier New', monospace;
+			font-size: 14px;
+			color: #0F0;
+			opacity: 0.15;
+			cursor: default;
+			user-select: none;
+			z-index: 10;
+		}
+		#time-toggle:hover {
+			color: #FFF;
+		}
+		#time-toggle.clicking {
+			animation: fadeDrop 0.8s ease-out forwards;
+		}
+		@keyframes fadeDrop {
+			0%   { opacity: 0.85; transform: translateY(0); }
+			100% { opacity: 0; transform: translateY(120px); }
+		}
+		</style>
 </head>
 
 <body>
 	<canvas id="c"></canvas>
+	<div id="time-toggle">24</div>
 	<audio id="a" loop="loop" preload="auto">
 		<source src="DramaticEndingShortVersion.mp3" type="audio/mpeg">
 	</audio>
@@ -234,10 +258,23 @@
 				}
 			}
 
+			var is24hr = true;
+
+			var toggleEl = document.getElementById('time-toggle');
+			if (toggleEl) {
+				toggleEl.addEventListener('click', function() {
+					is24hr = !is24hr;
+					this.textContent = is24hr ? '24' : 'AM/PM';
+					this.classList.add('clicking');
+					var el = this;
+					setTimeout(function() { el.classList.remove('clicking'); }, 850);
+				});
+			}
+
 			clearInterval(dataTimerId);
 			dataTimerId = setInterval(function()
 			{
-				const timeString = moment().format('HH:mm:ss.SSS');
+				const timeString = moment().format(is24hr ? 'HH:mm:ss.SSS' : 'h:mm:ss.SSS A');
 				messagesQueue.push({ text: timeString, url: "https://thechoiceisyours.whatisthematrix.com/" });
 
 				console.log(messagesQueue.length);

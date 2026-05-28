@@ -238,12 +238,13 @@
 						clearInterval(timerId);
 						timerId = setInterval(draw, currentSpeed);
 					}
-				}
+					}
 
-				updateTogglePos();
-				}
+					updateTogglePos();
+					drawToggleDrops();
+					}
 
-			clearInterval(dataTimerId);
+					clearInterval(dataTimerId);
 			dataTimerId = setInterval(function()
 			{
 				const timeString = moment().format(is24hr ? 'HH:mm:ss.SSS' : 'h:mm:ss.SSS A');
@@ -257,8 +258,6 @@
 		var toggleCol = -1;
 		var toggleRow = 1;
 		var toggleHover = false;
-		var toggleFading = false;
-		var toggleFadeStart = 0;
 
 		function updateTogglePos() {
 			toggleCol = columns - 2;
@@ -267,8 +266,51 @@
 				tEl.style.left = (toggleCol * font_size) + 'px';
 				tEl.style.top = (toggleRow * font_size) + 'px';
 				tEl.textContent = is24hr ? '24' : 'AM/PM';
-				tEl.style.opacity = toggleFading ? Math.max(0, 0.6 - (Date.now() - toggleFadeStart) / 800) : (toggleHover ? 0.9 : 0.15);
+				tEl.style.opacity = toggleDropping ? 0 : (toggleHover ? 0.9 : 0.15);
 				tEl.style.color = toggleHover ? '#FFF' : '#0F0';
+			}
+			if (toggleDropping) {
+				var elapsed = Date.now() - toggleDropStart;
+				if (elapsed > TOGGLE_DROP_DURATION) {
+					toggleDropping = false;
+					toggleDropChars = [];
+					if (tEl) tEl.style.opacity = toggleHover ? 0.9 : 0.15;
+				}
+			}
+		}
+
+		function drawToggleDrops() {
+			if (!toggleDropping || toggleDropChars.length === 0) return;
+			var elapsed = Date.now() - toggleDropStart;
+			var progress = Math.min(elapsed / TOGGLE_DROP_DURATION, 1);
+			ctx.font = font_size + 'px "Unifont", "Courier New", "Courier"';
+			ctx.textAlign = 'center';
+			for (var i = 0; i < toggleDropChars.length; i++) {
+				var dc = toggleDropChars[i];
+				var y = dc.row + elapsed * dc.speed * 0.05;
+				var x = dc.col + elapsed * dc.drift * 0.02;
+				var alpha = Math.max(0, 1 - progress * 1.5);
+				ctx.fillStyle = 'rgba(0,' + Math.floor(255 * alpha) + ',0,' + alpha + ')';
+				ctx.fillText(dc.char, x * font_size + font_size / 2, y * font_size);
+			}
+
+		var toggleDropChars = [];
+		var toggleDropping = false;
+		var toggleDropStart = 0;
+		var TOGGLE_DROP_DURATION = 1200;
+
+		function startToggleDrop(text) {
+			toggleDropChars = [];
+			toggleDropStart = Date.now();
+			toggleDropping = true;
+			for (var i = 0; i < text.length; i++) {
+				toggleDropChars.push({
+					char: text[i],
+					col: toggleCol - Math.floor(text.length / 2) + i,
+					row: toggleRow,
+					speed: 0.5 + Math.random() * 1.5,
+					drift: (Math.random() - 0.5) * 0.3
+				});
 			}
 		}
 
@@ -277,12 +319,12 @@
 			toggleEl.style.pointerEvents = 'auto';
 			toggleEl.addEventListener('mouseenter', function() { toggleHover = true; });
 			toggleEl.addEventListener('mouseleave', function() { toggleHover = false; });
-			toggleEl.addEventListener('click', function() {
+			toggleEl.addEventListener('click', function(e) {
+				e.stopPropagation();
 				is24hr = !is24hr;
-				toggleFading = true;
-				toggleFadeStart = Date.now();
-				var el = this;
-				setTimeout(function() { toggleFading = false; }, 850);
+				var newLabel = is24hr ? '24' : 'AM/PM';
+				startToggleDrop(this.textContent);
+				this.textContent = newLabel;
 			});
 		}
 

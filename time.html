@@ -55,7 +55,7 @@
 	<canvas id="c"></canvas>
 	<div id="time-toggle">24</div>
 	<div id="rain-controls">
-		<span id="ctrl-left">&lt;</span><span id="ctrl-right">&gt;</span><span id="ctrl-up">^</span><span id="ctrl-down">v</span>
+		<span id="ctrl-up">^</span><span id="ctrl-down">v</span><span id="ctrl-reset">||</span><span id="ctrl-left">&lt;</span><span id="ctrl-right">&gt;</span>
 	</div>
 	<audio id="a" loop="loop" preload="auto">
 		<source src="DramaticEndingShortVersion.mp3" type="audio/mpeg">
@@ -181,17 +181,13 @@
 				// Fade old symbols away one step
 				if (currentColumn > 0)
 				{
-					//Black BG for the canvas
-					//translucent BG to show trail
-					ctx.fillStyle = "rgba(0, 0, 0, 0.10)";
+					ctx.fillStyle = "rgba(0, 0, 0, " + trailAlpha + ")";
 					ctx.fillRect(0, 0, currentColumn * font_size, c.height);
 					ctx.fillRect((currentColumn + 1) * font_size, 0,  c.width, c.height);
 				}
 				else
 				{
-					//Black BG for the canvas
-					//translucent BG to show trail
-					ctx.fillStyle = "rgba(0, 0, 0, 0.10)";
+					ctx.fillStyle = "rgba(0, 0, 0, " + trailAlpha + ")";
 					ctx.fillRect(0, 0, c.width, c.height);
 				}
 
@@ -351,11 +347,14 @@
 		}
 
 		var rainOffset = 0;
+		var trailAlpha = 0.10;
+		var DEFAULT_SPEED = 88;
+		var DEFAULT_TRAIL = 0.10;
 
 		function positionControls() {
 			var ctrlEl = document.getElementById('rain-controls');
 			if (!ctrlEl) return;
-			var ctrlCol = columns - 5;
+			var ctrlCol = columns - 7;
 			var ctrlRow = rows - 2;
 			ctrlEl.style.left = (ctrlCol * font_size) + 'px';
 			ctrlEl.style.top = (ctrlRow * font_size) + 'px';
@@ -370,10 +369,11 @@
 			});
 		}
 
-		setupControl('ctrl-left', function() { rainOffset = Math.max(rainOffset - 1, -Math.floor(columns / 3)); resetMatrix(); });
-		setupControl('ctrl-right', function() { rainOffset = Math.min(rainOffset + 1, Math.floor(columns / 3)); resetMatrix(); });
-		setupControl('ctrl-up', function() { currentSpeed = Math.max(minSpeed, currentSpeed - 4); clearInterval(drawTimerId); drawTimerId = setInterval(draw, currentSpeed); });
-		setupControl('ctrl-down', function() { currentSpeed = Math.min(maxSpeed, currentSpeed + 4); clearInterval(drawTimerId); drawTimerId = setInterval(draw, currentSpeed); });
+		setupControl('ctrl-right', function() { currentSpeed = Math.max(minSpeed, currentSpeed - 4); clearInterval(drawTimerId); drawTimerId = setInterval(draw, currentSpeed); });
+		setupControl('ctrl-left', function() { currentSpeed = Math.min(maxSpeed, currentSpeed + 4); clearInterval(drawTimerId); drawTimerId = setInterval(draw, currentSpeed); });
+		setupControl('ctrl-down', function() { trailAlpha = Math.min(0.25, trailAlpha + 0.02); });
+		setupControl('ctrl-up', function() { trailAlpha = Math.max(0.02, trailAlpha - 0.02); });
+		setupControl('ctrl-reset', function() { currentSpeed = DEFAULT_SPEED; trailAlpha = DEFAULT_TRAIL; rainOffset = 0; clearInterval(drawTimerId); drawTimerId = setInterval(draw, currentSpeed); resetMatrix(); });
 
 		window.addEventListener('resize', resetMatrix);
 		onload = function() {

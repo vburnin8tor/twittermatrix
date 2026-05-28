@@ -262,7 +262,8 @@
 
 			var toggleEl = document.getElementById('time-toggle');
 			if (toggleEl) {
-				toggleEl.addEventListener('click', function() {
+				toggleEl.addEventListener('click', function(e) {
+					e.stopPropagation();
 					is24hr = !is24hr;
 					this.textContent = is24hr ? '24' : 'AM/PM';
 					this.classList.add('clicking');

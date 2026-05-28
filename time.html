@@ -31,12 +31,32 @@
 			pointer-events: none;
 			z-index: 10;
 		}
+
+		#rain-controls {
+			position: absolute;
+			font-family: 'Unifont', 'Courier New', 'Courier';
+			font-size: 16px;
+			color: #0F0;
+			pointer-events: none;
+			z-index: 10;
+			white-space: pre;
+		}
+		#rain-controls span {
+			pointer-events: auto;
+			cursor: default;
+		}
+		#rain-controls span:hover {
+			color: #FFF;
+		}
 		</style>
 </head>
 
 <body>
 	<canvas id="c"></canvas>
 	<div id="time-toggle">24</div>
+	<div id="rain-controls">
+		<span id="ctrl-left">&lt;</span><span id="ctrl-right">&gt;</span><span id="ctrl-up">^</span><span id="ctrl-down">v</span>
+	</div>
 	<audio id="a" loop="loop" preload="auto">
 		<source src="DramaticEndingShortVersion.mp3" type="audio/mpeg">
 	</audio>
@@ -77,16 +97,18 @@
 			// limits
 			var columns = Math.floor(c.width / font_size);
 			var rows = Math.floor(c.height / font_size);
-			var middle = Math.floor(columns / 2);
+			var middle = Math.floor(columns / 2) + rainOffset;
 			
 			// x is the x coordinate or column number
 			for (var x = 0; x < columns; x++)
 				messages.push({ y: Math.floor(Math.random() * rows), offset: 0, symbols: [] });
 			
 			clearInterval(drawTimerId);
-			drawTimerId = setInterval(draw, currentSpeed);
-			
-			currentColumnState = {};
+				drawTimerId = setInterval(draw, currentSpeed);
+
+				positionControls();
+
+				currentColumnState = {};
 
 			function setColumnState(column)
 			{
@@ -328,10 +350,36 @@
 			});
 		}
 
+		var rainOffset = 0;
+
+		function positionControls() {
+			var ctrlEl = document.getElementById('rain-controls');
+			if (!ctrlEl) return;
+			var ctrlCol = columns - 5;
+			var ctrlRow = rows - 2;
+			ctrlEl.style.left = (ctrlCol * font_size) + 'px';
+			ctrlEl.style.top = (ctrlRow * font_size) + 'px';
+		}
+
+		function setupControl(id, action) {
+			var el = document.getElementById(id);
+			if (!el) return;
+			el.addEventListener('click', function(e) {
+				e.stopPropagation();
+				action();
+			});
+		}
+
+		setupControl('ctrl-left', function() { rainOffset = Math.max(rainOffset - 1, -Math.floor(columns / 3)); resetMatrix(); });
+		setupControl('ctrl-right', function() { rainOffset = Math.min(rainOffset + 1, Math.floor(columns / 3)); resetMatrix(); });
+		setupControl('ctrl-up', function() { currentSpeed = Math.max(minSpeed, currentSpeed - 4); clearInterval(drawTimerId); drawTimerId = setInterval(draw, currentSpeed); });
+		setupControl('ctrl-down', function() { currentSpeed = Math.min(maxSpeed, currentSpeed + 4); clearInterval(drawTimerId); drawTimerId = setInterval(draw, currentSpeed); });
+
 		window.addEventListener('resize', resetMatrix);
 		onload = function() {
 			resetMatrix();
 			updateTogglePos();
+			positionControls();
 		};
 	</script>
 </body>

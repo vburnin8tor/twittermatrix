@@ -86,24 +86,35 @@
 			clearInterval(drawTimerId);
 			drawTimerId = setInterval(draw, currentSpeed);
 			
-			mouseState = { x: -1, y: -1 };
-			currentColumnState = { };
-			
+			currentColumnState = {};
+
 			function setColumnState(column)
 			{
 				currentColumnState.column = column;
 				currentColumnState.messageEnd = false;
 				currentColumnState.steps = 0;
 			}
-			
+
 			function resetColumnState()
 			{
 				setColumnState(-1);
 			}
-			
+
 			resetColumnState();
-			
-			function updateColumnState(e) 
+
+			function spawnDrop(column) {
+				if (column < 0 || column >= columns) return;
+				var msg = messages[column];
+				msg.y = 1;
+				msg.offset = 0;
+				msg.symbols = [];
+				var burstLen = 8 + Math.floor(Math.random() * 12);
+				for (var s = 0; s < burstLen; s++) {
+					msg.symbols.push(String.fromCharCode(0x30A0 + Math.floor(Math.random() * 96)));
+				}
+			}
+
+			function updateColumnState(e)
 			{
 				var column = Math.floor(e.clientX / font_size);
 				if (currentColumnState.column != column)
@@ -111,20 +122,17 @@
 					setColumnState(column);
 				}
 			}
-			
+
 			function toggleAudio()
 			{
-				if (a.paused)
-				{
-					a.play();
-				}
-				else
-				{
-					a.pause();
-				}
+				if (a.paused) { a.play(); } else { a.pause(); }
 			}
-			
+
 			onmousemove = updateColumnState;
+			onclick = function(e) {
+				var col = Math.floor(e.clientX / font_size);
+				spawnDrop(col);
+			};
 			onkeyup = function(e)
 			{
 				if (e.keyCode == 32)

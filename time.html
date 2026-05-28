@@ -24,29 +24,26 @@
 		canvas { cursor: pointer; }
 
 		#time-toggle {
-			position: absolute;
-			font-family: 'Unifont', 'Courier New', 'Courier';
-			font-size: 16px;
+			position: fixed;
+			top: 8px;
+			right: 12px;
+			font-family: 'Unifont', 'Courier New', monospace;
+			font-size: 14px;
 			color: #0F0;
-			pointer-events: none;
-			z-index: 10;
-		}
-
-		#rain-controls {
-			position: absolute;
-			font-family: 'Unifont', 'Courier New', 'Courier';
-			font-size: 16px;
-			color: #0F0;
-			pointer-events: none;
-			z-index: 10;
-			white-space: pre;
-		}
-		#rain-controls span {
-			pointer-events: auto;
+			opacity: 0.15;
 			cursor: default;
+			user-select: none;
+			z-index: 10;
 		}
-		#rain-controls span:hover {
+		#time-toggle:hover {
 			color: #FFF;
+		}
+		#time-toggle.clicking {
+			animation: fadeDrop 0.8s ease-out forwards;
+		}
+		@keyframes fadeDrop {
+			0%   { opacity: 0.85; transform: translateY(0); }
+			100% { opacity: 0; transform: translateY(120px); }
 		}
 		</style>
 </head>
@@ -54,9 +51,6 @@
 <body>
 	<canvas id="c"></canvas>
 	<div id="time-toggle">24</div>
-	<div id="rain-controls">
-		<span id="ctrl-up">^</span><span id="ctrl-down">v</span><span id="ctrl-reset">||</span><span id="ctrl-left">&lt;</span><span id="ctrl-right">&gt;</span>
-	</div>
 	<audio id="a" loop="loop" preload="auto">
 		<source src="DramaticEndingShortVersion.mp3" type="audio/mpeg">
 	</audio>
@@ -97,46 +91,33 @@
 			// limits
 			var columns = Math.floor(c.width / font_size);
 			var rows = Math.floor(c.height / font_size);
-			var middle = Math.floor(columns / 2) + rainOffset;
+			var middle = Math.floor(columns / 2);
 			
 			// x is the x coordinate or column number
 			for (var x = 0; x < columns; x++)
 				messages.push({ y: Math.floor(Math.random() * rows), offset: 0, symbols: [] });
 			
 			clearInterval(drawTimerId);
-				drawTimerId = setInterval(draw, currentSpeed);
-
-				positionControls();
-
-				currentColumnState = {};
-
+			drawTimerId = setInterval(draw, currentSpeed);
+			
+			mouseState = { x: -1, y: -1 };
+			currentColumnState = { };
+			
 			function setColumnState(column)
 			{
 				currentColumnState.column = column;
 				currentColumnState.messageEnd = false;
 				currentColumnState.steps = 0;
 			}
-
+			
 			function resetColumnState()
 			{
 				setColumnState(-1);
 			}
-
+			
 			resetColumnState();
-
-			function spawnDrop(column) {
-				if (column < 0 || column >= columns) return;
-				var msg = messages[column];
-				msg.y = 1;
-				msg.offset = 0;
-				msg.symbols = [];
-				var burstLen = 8 + Math.floor(Math.random() * 12);
-				for (var s = 0; s < burstLen; s++) {
-					msg.symbols.push(String.fromCharCode(0x30A0 + Math.floor(Math.random() * 96)));
-				}
-			}
-
-			function updateColumnState(e)
+			
+			function updateColumnState(e) 
 			{
 				var column = Math.floor(e.clientX / font_size);
 				if (currentColumnState.column != column)
@@ -144,17 +125,20 @@
 					setColumnState(column);
 				}
 			}
-
+			
 			function toggleAudio()
 			{
-				if (a.paused) { a.play(); } else { a.pause(); }
+				if (a.paused)
+				{
+					a.play();
+				}
+				else
+				{
+					a.pause();
+				}
 			}
-
+			
 			onmousemove = updateColumnState;
-			onclick = function(e) {
-				var col = Math.floor(e.clientX / font_size);
-				spawnDrop(col);
-			};
 			onkeyup = function(e)
 			{
 				if (e.keyCode == 32)
@@ -181,13 +165,17 @@
 				// Fade old symbols away one step
 				if (currentColumn > 0)
 				{
-					ctx.fillStyle = "rgba(0, 0, 0, " + trailAlpha + ")";
+					//Black BG for the canvas
+					//translucent BG to show trail
+					ctx.fillStyle = "rgba(0, 0, 0, 0.10)";
 					ctx.fillRect(0, 0, currentColumn * font_size, c.height);
 					ctx.fillRect((currentColumn + 1) * font_size, 0,  c.width, c.height);
 				}
 				else
 				{
-					ctx.fillStyle = "rgba(0, 0, 0, " + trailAlpha + ")";
+					//Black BG for the canvas
+					//translucent BG to show trail
+					ctx.fillStyle = "rgba(0, 0, 0, 0.10)";
 					ctx.fillRect(0, 0, c.width, c.height);
 				}
 
@@ -242,7 +230,7 @@
 					if (currentSpeed > minSpeed)
 					{
 						currentSpeed -= speedStep; // speed up
-
+						
 						clearInterval(timerId);
 						timerId = setInterval(draw, currentSpeed);
 					}
@@ -252,17 +240,27 @@
 					if (currentSpeed < maxSpeed)
 					{
 						currentSpeed += speedStep; // slow down
-
+						
 						clearInterval(timerId);
 						timerId = setInterval(draw, currentSpeed);
 					}
-					}
+				}
+			}
 
-					updateTogglePos();
-					drawToggleDrops();
-					}
+			var is24hr = true;
 
-					clearInterval(dataTimerId);
+			var toggleEl = document.getElementById('time-toggle');
+			if (toggleEl) {
+				toggleEl.addEventListener('click', function() {
+					is24hr = !is24hr;
+					this.textContent = is24hr ? '24' : 'AM/PM';
+					this.classList.add('clicking');
+					var el = this;
+					setTimeout(function() { el.classList.remove('clicking'); }, 850);
+				});
+			}
+
+			clearInterval(dataTimerId);
 			dataTimerId = setInterval(function()
 			{
 				const timeString = moment().format(is24hr ? 'HH:mm:ss.SSS' : 'h:mm:ss.SSS A');
@@ -272,115 +270,8 @@
 			}, 32);
 		}
 
-		var is24hr = true;
-		var toggleCol = -1;
-		var toggleRow = 1;
-		var toggleHover = false;
-
-		function updateTogglePos() {
-			toggleCol = columns - 2;
-			var tEl = document.getElementById('time-toggle');
-			if (tEl) {
-				tEl.style.left = (toggleCol * font_size) + 'px';
-				tEl.style.top = (toggleRow * font_size) + 'px';
-				tEl.textContent = is24hr ? '24' : 'AM/PM';
-				tEl.style.opacity = toggleDropping ? 0 : (toggleHover ? 0.9 : 0.15);
-				tEl.style.color = toggleHover ? '#FFF' : '#0F0';
-			}
-			if (toggleDropping) {
-				var elapsed = Date.now() - toggleDropStart;
-				if (elapsed > TOGGLE_DROP_DURATION) {
-					toggleDropping = false;
-					toggleDropChars = [];
-					if (tEl) tEl.style.opacity = toggleHover ? 0.9 : 0.15;
-				}
-			}
-		}
-
-		function drawToggleDrops() {
-			if (!toggleDropping || toggleDropChars.length === 0) return;
-			var elapsed = Date.now() - toggleDropStart;
-			var progress = Math.min(elapsed / TOGGLE_DROP_DURATION, 1);
-			ctx.font = font_size + 'px "Unifont", "Courier New", "Courier"';
-			ctx.textAlign = 'center';
-			for (var i = 0; i < toggleDropChars.length; i++) {
-				var dc = toggleDropChars[i];
-				var y = dc.row + elapsed * dc.speed * 0.05;
-				var x = dc.col + elapsed * dc.drift * 0.02;
-				var alpha = Math.max(0, 1 - progress * 1.5);
-				ctx.fillStyle = 'rgba(0,' + Math.floor(255 * alpha) + ',0,' + alpha + ')';
-				ctx.fillText(dc.char, x * font_size + font_size / 2, y * font_size);
-			}
-
-		var toggleDropChars = [];
-		var toggleDropping = false;
-		var toggleDropStart = 0;
-		var TOGGLE_DROP_DURATION = 1200;
-
-		function startToggleDrop(text) {
-			toggleDropChars = [];
-			toggleDropStart = Date.now();
-			toggleDropping = true;
-			for (var i = 0; i < text.length; i++) {
-				toggleDropChars.push({
-					char: text[i],
-					col: toggleCol - Math.floor(text.length / 2) + i,
-					row: toggleRow,
-					speed: 0.5 + Math.random() * 1.5,
-					drift: (Math.random() - 0.5) * 0.3
-				});
-			}
-		}
-
-		var toggleEl = document.getElementById('time-toggle');
-		if (toggleEl) {
-			toggleEl.style.pointerEvents = 'auto';
-			toggleEl.addEventListener('mouseenter', function() { toggleHover = true; });
-			toggleEl.addEventListener('mouseleave', function() { toggleHover = false; });
-			toggleEl.addEventListener('click', function(e) {
-				e.stopPropagation();
-				is24hr = !is24hr;
-				var newLabel = is24hr ? '24' : 'AM/PM';
-				startToggleDrop(this.textContent);
-				this.textContent = newLabel;
-			});
-		}
-
-		var rainOffset = 0;
-		var trailAlpha = 0.10;
-		var DEFAULT_SPEED = 88;
-		var DEFAULT_TRAIL = 0.10;
-
-		function positionControls() {
-			var ctrlEl = document.getElementById('rain-controls');
-			if (!ctrlEl) return;
-			var ctrlCol = columns - 7;
-			var ctrlRow = rows - 2;
-			ctrlEl.style.left = (ctrlCol * font_size) + 'px';
-			ctrlEl.style.top = (ctrlRow * font_size) + 'px';
-		}
-
-		function setupControl(id, action) {
-			var el = document.getElementById(id);
-			if (!el) return;
-			el.addEventListener('click', function(e) {
-				e.stopPropagation();
-				action();
-			});
-		}
-
-		setupControl('ctrl-right', function() { currentSpeed = Math.max(minSpeed, currentSpeed - 4); clearInterval(drawTimerId); drawTimerId = setInterval(draw, currentSpeed); });
-		setupControl('ctrl-left', function() { currentSpeed = Math.min(maxSpeed, currentSpeed + 4); clearInterval(drawTimerId); drawTimerId = setInterval(draw, currentSpeed); });
-		setupControl('ctrl-down', function() { trailAlpha = Math.min(0.25, trailAlpha + 0.02); });
-		setupControl('ctrl-up', function() { trailAlpha = Math.max(0.02, trailAlpha - 0.02); });
-		setupControl('ctrl-reset', function() { currentSpeed = DEFAULT_SPEED; trailAlpha = DEFAULT_TRAIL; rainOffset = 0; clearInterval(drawTimerId); drawTimerId = setInterval(draw, currentSpeed); resetMatrix(); });
-
 		window.addEventListener('resize', resetMatrix);
-		onload = function() {
-			resetMatrix();
-			updateTogglePos();
-			positionControls();
-		};
+		onload = resetMatrix;
 	</script>
 </body>
 
